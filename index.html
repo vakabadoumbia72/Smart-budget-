@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Budget Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .active-tab { background: white; color: #059669; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-slate-50">
+
+    <!-- PAGE DE CONNEXION -->
+    <div id="login-page" class="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+        <div class="w-full max-w-md bg-white p-8 rounded-[2.5rem] shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="lock" class="text-emerald-600"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900">Smart Budget</h1>
+                <p class="text-slate-500 text-sm">Identifiants requis</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="username" placeholder="Utilisateur" class="w-full p-4 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-500 transition-all">
+                <input type="password" id="password" placeholder="Mot de passe" class="w-full p-4 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-500 transition-all">
+                <p id="login-error" class="text-red-500 text-sm text-center hidden font-bold">Accès refusé</p>
+                <button onclick="handleLogin()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg hover:bg-emerald-700 transition-all">Se connecter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE PRINCIPALE -->
+    <div id="main-page" class="hidden min-h-screen p-4 pb-20">
+        <div class="max-w-md mx-auto space-y-6">
+            
+            <!-- Header & Solde -->
+            <header class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-xl font-black text-slate-900">Smart Budget</h1>
+                    <button onclick="handleLogout()" class="p-2 text-slate-300 hover:text-red-500"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                </div>
+                
+                <!-- SALAIRE MODIFIABLE -->
+                <div class="flex justify-between items-end border-b border-slate-50 pb-2">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Salaire de base / Avance</p>
+                        <div class="flex items-center gap-2">
+                            <span id="display-salary" class="text-lg font-bold text-slate-700">125 000 F</span>
+                            <button onclick="editSalary()" class="text-emerald-600 hover:text-emerald-700">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-2xl">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Solde Réel</p>
+                        <div id="display-balance" class="text-xl font-black text-emerald-600">0 F</div>
+                    </div>
+                    <div class="bg-emerald-600 p-4 rounded-2xl text-white">
+                        <p class="text-[10px] font-bold opacity-70 uppercase">Théorique</p>
+                        <div id="display-theoretical" class="text-xl font-black">0 F</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Navigation Rapide -->
+            <div class="flex p-1 bg-slate-200 rounded-2xl">
+                <button onclick="switchTab('add')" id="tab-add" class="active-tab flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all">Ajouter</button>
+                <button onclick="switchTab('plan')" id="tab-plan" class="flex-1 py-2 text-[10px] font-black uppercase text-slate-500 rounded-xl transition-all">Budget</button>
+                <button onclick="switchTab('goals')" id="tab-goals" class="flex-1 py-2 text-[10px] font-black uppercase text-slate-500 rounded-xl transition-all">Objectifs</button>
+            </div>
+
+            <!-- SECTION : AJOUTER (Dépenses / Revenus) -->
+            <div id="section-add" class="space-y-4">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex p-1 bg-slate-100 rounded-xl mb-2">
+                        <button onclick="setEntryType('expense')" id="btn-exp" class="flex-1 py-2 text-[10px] font-bold rounded-lg bg-white text-emerald-600 shadow-sm">Dépense</button>
+                        <button onclick="setEntryType('income')" id="btn-inc" class="flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400">Revenu</button>
+                    </div>
+                    <input type="number" id="input-amount" placeholder="Montant (F)" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-slate-100 focus:border-emerald-500 font-bold">
+                    <select id="input-category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border border-slate-100 text-sm">
+                        <!-- Rempli par JS -->
+                    </select>
+                    <button onclick="handleAdd()" id="btn-submit" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-md active:scale-95 transition-all">Ajouter</button>
+                </div>
+            </div>
+
+            <!-- SECTION : BUDGET PRÉVU -->
+            <div id="section-plan" class="hidden space-y-4">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2"><i data-lucide="list-todo" class="w-5 h-5 text-blue-500"></i>Budget Mensuel Prévu</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="plan-name" placeholder="Nom (ex: Loyer)" class="flex-1 p-3 bg-slate-50 rounded-xl outline-none border border-slate-100 text-sm">
+                        <input type="number" id="plan-amount" placeholder="F" class="w-24 p-3 bg-slate-50 rounded-xl outline-none border border-slate-100 text-sm font-bold">
+                    </div>
+                    <button onclick="addPlanned()" class="w-full py-3 bg-slate-900 text-white font-bold rounded-xl text-xs">Ajouter au Budget</button>
+                    <div id="planned-list" class="space-y-2 pt-2"></div>
+                </div>
+            </div>
+
+            <!-- SECTION : OBJECTIFS -->
+            <div id="section-goals" class="hidden space-y-4">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5 text-indigo-500"></i>Objectifs d'Épargne</h3>
+                    <div class="space-y-2">
+                        <input type="text" id="goal-name" placeholder="Nom de l'objectif" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-100 text-sm">
+                        <input type="number" id="goal-target" placeholder="Montant Cible (F)" class="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-100 text-sm font-bold">
+                    </div>
+                    <button onclick="addGoal()" class="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl text-xs">Créer l'Objectif</button>
+                    <div id="goals-list" class="space-y-4 pt-2"></div>
+                </div>
+            </div>
+
+            <!-- Graphique & Analyse -->
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-6">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-slate-900">Analyse</h3>
+                    <div id="advice-box" class="text-[10px] bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-bold hidden">Conseil dispo</div>
+                </div>
+                <div class="relative h-64"><canvas id="expenseChart"></canvas></div>
+                <div id="warnings-list" class="space-y-2"></div>
+            </div>
+
+            <!-- Historique -->
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                <h3 class="font-bold mb-4 text-slate-900 flex items-center gap-2"><i data-lucide="history" class="w-5 h-5 text-emerald-500"></i>Historique</h3>
+                <div id="history-list" class="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CATEGORIES = ['Transport', 'Nourriture', 'Café', 'Cigarette', 'Maison', 'Imprévu', 'Argent de poche Maman', "Facture d'eau", 'Loisirs', 'Santé', 'Autre'];
+        const INCOME_SOURCES = ['Salaire', 'Prime', 'Vente', 'Cadeau', 'Autre'];
+        
+        let salary = parseFloat(localStorage.getItem('sb_salary') || '125000');
+        let expenses = JSON.parse(localStorage.getItem('sb_exp') || '[]');
+        let incomes = JSON.parse(localStorage.getItem('sb_inc') || '[]');
+        let planned = JSON.parse(localStorage.getItem('sb_plan') || '[]');
+        let goals = JSON.parse(localStorage.getItem('sb_goals') || '[]');
+        
+        let entryType = 'expense';
+        let chart = null;
+
+        // --- AUTHENTIFICATION ---
+        function handleLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            if (u === 'winner01' && p === 'Agentx') {
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('main-page').classList.remove('hidden');
+                localStorage.setItem('sb_logged', 'true');
+                initApp();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('sb_logged');
+            location.reload();
+        }
+
+        // --- SALAIRE ---
+        function editSalary() {
+            const newVal = prompt("Entrez votre nouveau salaire ou montant disponible (F) :", salary);
+            if (newVal !== null && !isNaN(parseFloat(newVal))) {
+                salary = parseFloat(newVal);
+                localStorage.setItem('sb_salary', salary.toString());
+                updateUI();
+            }
+        }
+
+        // --- NAVIGATION ---
+        function switchTab(tab) {
+            ['add', 'plan', 'goals'].forEach(t => {
+                document.getElementById('section-' + t).classList.add('hidden');
+                document.getElementById('tab-' + t).classList.remove('active-tab');
+                document.getElementById('tab-' + t).classList.add('text-slate-500');
+            });
+            document.getElementById('section-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('active-tab');
+            document.getElementById('tab-' + tab).classList.remove('text-slate-500');
+            lucide.createIcons();
+        }
+
+        function setEntryType(type) {
+            entryType = type;
+            const bExp = document.getElementById('btn-exp');
+            const bInc = document.getElementById('btn-inc');
+            const sub = document.getElementById('btn-submit');
+            
+            if (type === 'expense') {
+                bExp.className = "flex-1 py-2 text-[10px] font-bold rounded-lg bg-white text-emerald-600 shadow-sm";
+                bInc.className = "flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400";
+                sub.className = "w-full py-4 bg-emerald-600 text-white font-bold rounded-2xl shadow-md active:scale-95 transition-all";
+                fillCategories(CATEGORIES);
+            } else {
+                bInc.className = "flex-1 py-2 text-[10px] font-bold rounded-lg bg-white text-blue-600 shadow-sm";
+                bExp.className = "flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400";
+                sub.className = "w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-md active:scale-95 transition-all";
+                fillCategories(INCOME_SOURCES);
+            }
+        }
+
+        function fillCategories(list) {
+            const sel = document.getElementById('input-category');
+            sel.innerHTML = list.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // --- LOGIQUE ---
+        function initApp() {
+            setEntryType('expense');
+            updateUI();
+            lucide.createIcons();
+        }
+
+        function handleAdd() {
+            const amt = parseFloat(document.getElementById('input-amount').value);
+            const cat = document.getElementById('input-category').value;
+            if (!amt || amt <= 0) return;
+
+            const item = { id: Date.now(), amount: amt, name: cat, date: new Date().toLocaleDateString('fr-FR') };
+            
+            if (entryType === 'expense') {
+                expenses.push(item);
+                localStorage.setItem('sb_exp', JSON.stringify(expenses));
+            } else {
+                incomes.push(item);
+                localStorage.setItem('sb_inc', JSON.stringify(incomes));
+            }
+            
+            document.getElementById('input-amount').value = '';
+            updateUI();
+        }
+
+        function addPlanned() {
+            const name = document.getElementById('plan-name').value;
+            const amt = parseFloat(document.getElementById('plan-amount').value);
+            if (!name || !amt) return;
+            planned.push({ id: Date.now(), name, amount: amt });
+            localStorage.setItem('sb_plan', JSON.stringify(planned));
+            document.getElementById('plan-name').value = '';
+            document.getElementById('plan-amount').value = '';
+            updateUI();
+        }
+
+        function addGoal() {
+            const name = document.getElementById('goal-name').value;
+            const target = parseFloat(document.getElementById('goal-target').value);
+            if (!name || !target) return;
+            goals.push({ id: Date.now(), name, target, current: 0 });
+            localStorage.setItem('sb_goals', JSON.stringify(goals));
+            document.getElementById('goal-name').value = '';
+            document.getElementById('goal-target').value = '';
+            updateUI();
+        }
+
+        function updateGoal(id, amt) {
+            goals = goals.map(g => g.id === id ? { ...g, current: Math.max(0, g.current + amt) } : g);
+            localStorage.setItem('sb_goals', JSON.stringify(goals));
+            updateUI();
+        }
+
+        function deleteItem(type, id) {
+            if (type === 'exp') expenses = expenses.filter(e => e.id !== id);
+            if (type === 'inc') incomes = incomes.filter(i => i.id !== id);
+            if (type === 'plan') planned = planned.filter(p => p.id !== id);
+            if (type === 'goal') goals = goals.filter(g => g.id !== id);
+            
+            localStorage.setItem('sb_exp', JSON.stringify(expenses));
+            localStorage.setItem('sb_inc', JSON.stringify(incomes));
+            localStorage.setItem('sb_plan', JSON.stringify(planned));
+            localStorage.setItem('sb_goals', JSON.stringify(goals));
+            updateUI();
+        }
+
+        function updateUI() {
+            const totalInc = incomes.reduce((s, i) => s + i.amount, 0) + salary;
+            const totalExp = expenses.reduce((s, e) => s + e.amount, 0);
+            const totalPlan = planned.reduce((s, p) => s + p.amount, 0);
+            
+            const balance = totalInc - totalExp;
+            const theoretical = totalInc - totalPlan;
+
+            document.getElementById('display-salary').innerText = salary.toLocaleString() + ' F';
+            document.getElementById('display-balance').innerText = balance.toLocaleString() + ' F';
+            document.getElementById('display-theoretical').innerText = theoretical.toLocaleString() + ' F';
+
+            renderHistory();
+            renderPlanned();
+            renderGoals();
+            updateChart(expenses);
+            checkWarnings(expenses);
+            lucide.createIcons();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            const all = [
+                ...expenses.map(e => ({...e, type: 'exp'})),
+                ...incomes.map(i => ({...i, type: 'inc'}))
+            ].sort((a, b) => b.id - a.id);
+
+            list.innerHTML = all.length === 0 ? '<p class="text-center text-slate-400 text-xs italic py-4">Aucune transaction</p>' : '';
+            all.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-4 bg-slate-50 rounded-2xl";
+                div.innerHTML = `
+                    <div><p class="text-xs font-bold text-slate-900">${item.name}</p><p class="text-[10px] text-slate-400">${item.date}</p></div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-black ${item.type === 'exp' ? 'text-red-500' : 'text-blue-500'}">${item.type === 'exp' ? '-' : '+'}${item.amount.toLocaleString()} F</span>
+                        <button onclick="deleteItem('${item.type}', ${item.id})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function renderPlanned() {
+            const list = document.getElementById('planned-list');
+            list.innerHTML = planned.length === 0 ? '<p class="text-center text-slate-400 text-[10px] italic py-2">Rien de prévu</p>' : '';
+            planned.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-3 bg-slate-50 rounded-xl";
+                div.innerHTML = `<span class="text-xs font-bold">${p.name}</span><div class="flex items-center gap-2"><span class="text-xs font-black text-emerald-600">${p.amount.toLocaleString()} F</span><button onclick="deleteItem('plan', ${p.id})" class="text-slate-300"><i data-lucide="x" class="w-3 h-3"></i></button></div>`;
+                list.appendChild(div);
+            });
+        }
+
+        function renderGoals() {
+            const list = document.getElementById('goals-list');
+            list.innerHTML = goals.length === 0 ? '<p class="text-center text-slate-400 text-[10px] italic py-2">Aucun objectif</p>' : '';
+            goals.forEach(g => {
+                const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+                const div = document.createElement('div');
+                div.className = "p-4 bg-slate-50 rounded-2xl space-y-2";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center"><span class="text-xs font-bold">${g.name}</span><button onclick="deleteItem('goal', ${g.id})" class="text-slate-300"><i data-lucide="trash-2" class="w-3 h-3"></i></button></div>
+                    <div class="h-2 bg-slate-200 rounded-full overflow-hidden"><div class="h-full bg-indigo-500" style="width: ${pct}%"></div></div>
+                    <div class="flex justify-between items-center text-[10px] font-bold">
+                        <span class="text-slate-400">${g.current.toLocaleString()} / ${g.target.toLocaleString()} F</span>
+                        <div class="flex gap-2">
+                            <button onclick="updateGoal(${g.id}, 1000)" class="text-indigo-600">+1k</button>
+                            <button onclick="updateGoal(${g.id}, 5000)" class="text-indigo-600">+5k</button>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateChart(exps) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const data = CATEGORIES.map(c => exps.filter(e => e.name === c).reduce((s, e) => s + e.amount, 0));
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: CATEGORIES, datasets: [{ data, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#ec4899', '#06b6d4', '#84cc16', '#f43f5e', '#64748b'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+            });
+        }
+
+        function checkWarnings(exps) {
+            const warnList = document.getElementById('warnings-list');
+            const adviceBox = document.getElementById('advice-box');
+            warnList.innerHTML = '';
+            const cig = exps.filter(e => e.name === 'Cigarette').reduce((s, e) => s + e.amount, 0);
+            const cafe = exps.filter(e => e.name === 'Café').reduce((s, e) => s + e.amount, 0);
+            if (cig > 10000) warnList.innerHTML += `<div class="p-3 bg-red-50 text-red-700 text-[10px] font-bold rounded-xl border border-red-100">⚠️ Cigarette > 10 000 F !</div>`;
+            if (cafe > 5000) warnList.innerHTML += `<div class="p-3 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-xl border border-amber-100">⚠️ Café > 5 000 F !</div>`;
+            if (cig > 0 || cafe > 0) {
+                adviceBox.classList.remove('hidden');
+                adviceBox.onclick = () => alert(`💡 En réduisant cigarette et café, tu pourrais économiser environ ${Math.round(cig*0.3 + cafe*0.5)} F ce mois-ci.`);
+            } else { adviceBox.classList.add('hidden'); }
+        }
+
+        window.onload = () => {
+            if (localStorage.getItem('sb_logged') === 'true') {
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('main-page').classList.remove('hidden');
+                initApp();
+            } else { lucide.createIcons(); }
+        };
+    </script>
+</body>
+</html>
